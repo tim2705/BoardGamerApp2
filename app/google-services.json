@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "980751796452",
+    "project_id": "boardgamerapp-fa795",
+    "storage_bucket": "boardgamerapp-fa795.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:980751796452:android:c5a32d2ec91c43466944f1",
+        "android_client_info": {
+          "package_name": "com.example.boardgamer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkXflWDQ5arWmJBE-TTGwdwjx_q1PZ0sw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:980751796452:android:986b2b441ee590856944f1",
+        "android_client_info": {
+          "package_name": "com.example.boardgamerapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkXflWDQ5arWmJBE-TTGwdwjx_q1PZ0sw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

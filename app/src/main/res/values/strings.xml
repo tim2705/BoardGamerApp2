@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BoardGamer App</string>
+    <string name="menu_history">Verlauf</string>
+    <string name="upvote">Upvote</string>
+    <string name="upvote_description">Für dieses Spiel abstimmen</string>
+    <string name="history_title">Verlauf der Spieleabende</string>
+    <string name="history_toolbar_description">Verlauf-Toolbar</string>
+    <string name="history_list_description">Liste der vergangenen Spieleabende</string>
+    <string name="history_empty_message">Noch keine Spieleabende vorhanden</string>
+</resources>
