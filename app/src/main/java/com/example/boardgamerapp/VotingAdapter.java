@@ -12,6 +12,7 @@ public class VotingAdapter extends RecyclerView.Adapter<VotingAdapter.VoteHolder
     @Override public void onBindViewHolder(@NonNull VoteHolder h,int pos){
         GameProposal p=items.get(pos);
         h.tvGame.setText(p.game);
+        h.tvVotes.setText(String.valueOf(p.votes));
         // Top-3 farblich hervorheben
         if (pos == 0) {
             h.itemView.setBackgroundColor(Color.parseColor("#FFD700")); // Gold
@@ -26,7 +27,7 @@ public class VotingAdapter extends RecyclerView.Adapter<VotingAdapter.VoteHolder
     }
     @Override public int getItemCount(){ return items.size(); }
     static class VoteHolder extends RecyclerView.ViewHolder{
-        TextView tvGame; Button btnUpvote;
-        VoteHolder(View iv){ super(iv); tvGame=iv.findViewById(R.id.tvGameName); btnUpvote=iv.findViewById(R.id.btnUpvote); }
+        TextView tvGame, tvVotes; Button btnUpvote;
+        VoteHolder(View iv){ super(iv); tvGame=iv.findViewById(R.id.tvGameName); tvVotes=iv.findViewById(R.id.tvVotes); btnUpvote=iv.findViewById(R.id.btnUpvote); }
     }
 }

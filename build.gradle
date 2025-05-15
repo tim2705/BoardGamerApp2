@@ -11,9 +11,7 @@ buildscript {
     }
 }
 
-// Hier kommen dann die Plugin-Definitionen:
 plugins {
-    // Google Services Plugin (nicht auf Root-Ebene aktivieren, sondern auf App-Level in build.gradle)
     id 'com.google.gms.google-services' version '4.4.0' apply false
 }
 
