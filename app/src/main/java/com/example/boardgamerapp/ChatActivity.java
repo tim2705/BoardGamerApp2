@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import android.view.MenuItem;
 
 public class ChatActivity extends AppCompatActivity {
     private static final String TAG = "ChatActivity";
@@ -39,127 +40,100 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        try {
-            setContentView(R.layout.activity_chat);
-
-            // Toolbar Setup
-            MaterialToolbar toolbar = findViewById(R.id.toolbar);
-            setSupportActionBar(toolbar);
-            
-            // Moderner Back-Button Handler
-            getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-                @Override
-                public void handleOnBackPressed() {
-                    finish();
-                }
-            });
-            toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
-
-            db = FirebaseFirestore.getInstance();
-            recyclerView = findViewById(R.id.recyclerChat);
-            etMessage = findViewById(R.id.etMessage);
-            btnSend = findViewById(R.id.btnSend);
-
-            recyclerView.setLayoutManager(new LinearLayoutManager(this));
-            adapter = new ChatAdapter();
-            recyclerView.setAdapter(adapter);
-
-            btnSend.setOnClickListener(v -> {
-                String message = etMessage.getText().toString().trim();
-                if (message.isEmpty()) {
-                    Toast.makeText(this, "Bitte geben Sie eine Nachricht ein", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                new AlertDialog.Builder(this)
-                    .setTitle("Nachricht senden")
-                    .setMessage("Möchten Sie diese Nachricht wirklich senden?")
-                    .setPositiveButton("Ja", (dialog, which) -> sendMessage(message))
-                    .setNegativeButton("Nein", null)
-                    .show();
-            });
-
-            loadMessages();
-        } catch (Exception e) {
-            Log.e(TAG, "Fehler beim Erstellen der Activity", e);
-            Toast.makeText(this, "Fehler beim Starten: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            finish();
-        }
+        setContentView(R.layout.activity_chat);
+        
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setTitle("Chat");
+        
+        toolbar.setNavigationOnClickListener(v -> onBackPressed());
+        
+        recyclerView = findViewById(R.id.recyclerView);
+        etMessage = findViewById(R.id.editText);
+        btnSend = findViewById(R.id.sendButton);
+        
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new ChatAdapter(this);
+        recyclerView.setAdapter(adapter);
+        
+        btnSend.setOnClickListener(v -> sendMessage());
+        
+        loadMessages();
     }
 
-    private void loadMessages() {
-        try {
-            db.collection("events")
-                .document("current")
-                .collection("messages")
-                .orderBy("timestamp", Query.Direction.ASCENDING)
-                .addSnapshotListener((value, error) -> {
-                    if (error != null) {
-                        Log.e(TAG, "Fehler beim Laden der Nachrichten", error);
-                        Toast.makeText(this, "Fehler beim Laden der Nachrichten: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-
-                    messages.clear();
-                    if (value != null) {
-                        for (var doc : value) {
-                            try {
-                                Message message = new Message(
-                                    doc.getId(),
-                                    doc.getString("text"),
-                                    doc.getString("userId"),
-                                    doc.getString("userName"),
-                                    doc.getLong("timestamp")
-                                );
-                                messages.add(message);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Fehler beim Verarbeiten einer Nachricht", e);
-                            }
-                        }
-                    }
-                    adapter.notifyDataSetChanged();
-                    if (!messages.isEmpty()) {
-                        recyclerView.scrollToPosition(messages.size() - 1);
-                    }
-                });
-        } catch (Exception e) {
-            Log.e(TAG, "Fehler beim Laden der Nachrichten", e);
-            Toast.makeText(this, "Fehler beim Laden der Nachrichten: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void sendMessage(String message) {
-        try {
-            String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+    private void sendMessage() {
+        String message = etMessage.getText().toString().trim();
+        if (!message.isEmpty()) {
+            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
             String userName = FirebaseAuth.getInstance().getCurrentUser().getDisplayName();
             
             Map<String, Object> chatMessage = new HashMap<>();
             chatMessage.put("text", message);
-            chatMessage.put("userId", uid);
+            chatMessage.put("userId", userId);
             chatMessage.put("userName", userName);
             chatMessage.put("timestamp", System.currentTimeMillis());
-
-            db.collection("events")
-                .document("current")
-                .collection("messages")
+            
+            FirebaseFirestore.getInstance().collection("messages")
                 .add(chatMessage)
-                .addOnSuccessListener(aVoid -> {
+                .addOnSuccessListener(documentReference -> {
                     etMessage.setText("");
-                    Toast.makeText(this, "Nachricht gesendet", Toast.LENGTH_SHORT).show();
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Fehler beim Senden der Nachricht", e);
-                    Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
-        } catch (Exception e) {
-            Log.e(TAG, "Fehler beim Senden der Nachricht", e);
-            Toast.makeText(this, "Fehler beim Senden der Nachricht: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void loadMessages() {
+        FirebaseFirestore.getInstance().collection("messages")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener((value, error) -> {
+                if (error != null) {
+                    return;
+                }
+                
+                List<Message> messages = new ArrayList<>();
+                for (var doc : value) {
+                    try {
+                        Message message = new Message(
+                            doc.getId(),
+                            doc.getString("text"),
+                            doc.getString("userId"),
+                            doc.getString("userName"),
+                            doc.getLong("timestamp")
+                        );
+                        messages.add(message);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Fehler beim Verarbeiten einer Nachricht", e);
+                    }
+                }
+                
+                adapter.setMessages(messages);
+                recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+            });
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.delete) {
+            String messageId = adapter.getSelectedMessageId();
+            String currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            
+            FirebaseFirestore.getInstance().collection("messages")
+                .document(messageId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    Message message = documentSnapshot.toObject(Message.class);
+                    if (message != null && message.userId.equals(currentUserId)) {
+                        documentSnapshot.getReference().delete();
+                    }
+                });
+        }
+        return super.onContextItemSelected(item);
     }
 
     private class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.MessageViewHolder> {
         private static final int VIEW_TYPE_SENT = 1;
         private static final int VIEW_TYPE_RECEIVED = 2;
+        private List<Message> messages = new ArrayList<>();
 
         @Override
         public int getItemViewType(int position) {
@@ -204,6 +178,16 @@ public class ChatActivity extends AppCompatActivity {
             return messages.size();
         }
 
+        void setMessages(List<Message> messages) {
+            this.messages.clear();
+            this.messages.addAll(messages);
+            notifyDataSetChanged();
+        }
+
+        String getSelectedMessageId() {
+            return messages.get(recyclerView.getChildAdapterPosition(recyclerView.findChildViewUnder(0, recyclerView.getY()))).id;
+        }
+
         class MessageViewHolder extends RecyclerView.ViewHolder {
             TextView tvMessage, tvUserName, tvTime;
 
@@ -218,9 +202,7 @@ public class ChatActivity extends AppCompatActivity {
 
     private void deleteMessage(Message message) {
         try {
-            db.collection("events")
-                .document("current")
-                .collection("messages")
+            FirebaseFirestore.getInstance().collection("messages")
                 .document(message.id)
                 .delete()
                 .addOnSuccessListener(aVoid -> 

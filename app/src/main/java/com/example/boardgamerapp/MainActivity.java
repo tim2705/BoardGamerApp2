@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.HashMap;
 import android.widget.Toast;
 import android.util.Log;
+import com.google.firebase.firestore.DocumentSnapshot;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -35,7 +36,8 @@ public class MainActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         // Prüfen ob Benutzer eingeloggt ist
-        if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() == null) {
             startActivity(new Intent(this, LoginActivity.class));
             finish();
             return;
@@ -49,8 +51,8 @@ public class MainActivity extends AppCompatActivity {
                 if (!documentSnapshot.exists()) {
                     // Initiales Dokument erstellen
                     Map<String, Object> initialData = new HashMap<>();
-                    initialData.put("date", System.currentTimeMillis());
-                    initialData.put("host", "Noch nicht bestimmt");
+                    initialData.put("nextEvent", calculateNextEvent());
+                    initialData.put("lastHost", "");
                     initialData.put("avgEventRating", 0.0);
                     initialData.put("avgFoodRating", 0.0);
                     initialData.put("avgHostRating", 0.0);
@@ -89,18 +91,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Logout mit Bestätigungsdialog
-        findViewById(R.id.btnLogout).setOnClickListener(v -> {
-            new AlertDialog.Builder(this)
-                .setTitle("Abmelden")
-                .setMessage("Möchten Sie sich wirklich abmelden?")
-                .setPositiveButton("Ja", (dialog, which) -> {
-                    FirebaseAuth.getInstance().signOut();
-                    startActivity(new Intent(this, LoginActivity.class));
-                    finish();
-                })
-                .setNegativeButton("Nein", null)
-                .show();
-        });
+        findViewById(R.id.btnLogout).setOnClickListener(v -> logout());
 
         // Nächsten Samstag, 20 Uhr berechnen
         Calendar cal = Calendar.getInstance();
@@ -124,6 +115,35 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnEndEvent).setOnClickListener(v -> endEvent());
     }
 
+    private void logout() {
+        new AlertDialog.Builder(this)
+            .setTitle("Abmelden")
+            .setMessage("Möchten Sie sich wirklich abmelden?")
+            .setPositiveButton("Ja", (dialog, which) -> {
+                FirebaseAuth.getInstance().signOut();
+                startActivity(new Intent(this, LoginActivity.class));
+                finish();
+            })
+            .setNegativeButton("Nein", null)
+            .show();
+    }
+
+    private Date calculateNextEvent() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.SATURDAY);
+        calendar.set(Calendar.HOUR_OF_DAY, 20);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        
+        int daysUntilSaturday = calendar.get(Calendar.DAY_OF_WEEK) - Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
+        if (daysUntilSaturday <= 0) {
+            daysUntilSaturday = 7;
+        }
+        
+        calendar.add(Calendar.DAY_OF_YEAR, daysUntilSaturday);
+        return calendar.getTime();
+    }
+
     private void determineNextHost() {
         db.collection("users")
             .get()
@@ -142,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
                         .addOnSuccessListener(eventDocs -> {
                             String lastHost = null;
                             if (!eventDocs.isEmpty()) {
-                                lastHost = eventDocs.getDocuments().get(0).getString("host");
+                                lastHost = eventDocs.getDocuments().get(0).getString("lastHost");
                             }
                             
                             // Nächsten Gastgeber bestimmen
@@ -159,7 +179,7 @@ public class MainActivity extends AppCompatActivity {
                             // Nächsten Gastgeber in der Datenbank speichern
                             db.collection("events")
                                 .document("current")
-                                .update("host", nextHost);
+                                .update("lastHost", nextHost);
                         });
                 } else {
                     tvLocation.setText("Gastgeber:in: (noch nicht bestimmt)");
@@ -183,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
                         .update("status", "completed", "endTime", System.currentTimeMillis())
                         .addOnSuccessListener(aVoid -> {
                             // Vorschläge und Abstimmungen löschen
-                            resetProposalsAndVotes();
+                            resetEvent();
                             
                             // UI aktualisieren
                             updateUI();
@@ -202,34 +222,36 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void resetProposalsAndVotes() {
-        // Vorschläge löschen
-        db.collection("events")
-            .document("current")
-            .collection("proposals")
-            .get()
-            .addOnSuccessListener(queryDocumentSnapshots -> {
-                for (var doc : queryDocumentSnapshots) {
-                    doc.getReference().delete();
-                }
+    private void resetEvent() {
+        new AlertDialog.Builder(this)
+            .setTitle("Event zurücksetzen")
+            .setMessage("Möchten Sie das aktuelle Event wirklich zurücksetzen?")
+            .setPositiveButton("Ja", (dialog, which) -> {
+                FirebaseFirestore db = FirebaseFirestore.getInstance();
+                db.collection("events").document("current")
+                    .update("nextEvent", calculateNextEvent())
+                    .addOnSuccessListener(aVoid -> {
+                        db.collection("proposals").get()
+                            .addOnSuccessListener(queryDocumentSnapshots -> {
+                                for (DocumentSnapshot document : queryDocumentSnapshots) {
+                                    document.getReference().delete();
+                                }
+                            });
+                        
+                        db.collection("votes").get()
+                            .addOnSuccessListener(queryDocumentSnapshots -> {
+                                for (DocumentSnapshot document : queryDocumentSnapshots) {
+                                    document.getReference().delete();
+                                }
+                            });
+                        
+                        Toast.makeText(MainActivity.this, 
+                            "Event wurde zurückgesetzt", 
+                            Toast.LENGTH_SHORT).show();
+                    });
             })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Fehler beim Löschen der Vorschläge", e);
-            });
-
-        // Abstimmungen löschen
-        db.collection("events")
-            .document("current")
-            .collection("votes")
-            .get()
-            .addOnSuccessListener(queryDocumentSnapshots -> {
-                for (var doc : queryDocumentSnapshots) {
-                    doc.getReference().delete();
-                }
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Fehler beim Löschen der Abstimmungen", e);
-            });
+            .setNegativeButton("Nein", null)
+            .show();
     }
 
     private void updateUI() {
